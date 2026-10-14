@@ -2,6 +2,7 @@
 
 ## 效果
 
+https://github.com/user-attachments/assets/35a7ed2e-369e-4eb7-a7b5-6d2485c81433
 
 把讯飞 AIkit 离线 XTTS 接成 speech-dispatcher 的输出模块：桌面上任何走 speech-dispatcher 的程序
 （Orca、浏览器"朗读"、`spd-say`、自研客户端）都能用讯飞的离线声音说话，**合成不需要联网**。
