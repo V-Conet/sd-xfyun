@@ -1,0 +1,97 @@
+# Maintainer: V-Conet
+
+pkgname=sd-xfyun
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='speech-dispatcher 输出模块：讯飞 AIkit 离线语音合成（XTTS）'
+arch=('x86_64')
+url='https://git.vconet.top/V-Conet/sd-xfyun'
+license=('MIT') # 仅本项目代码；3rd_party 下的讯飞 SDK 为专有软件，需按讯飞授权使用
+depends=('speech-dispatcher' 'glibc' 'gcc-libs')
+makedepends=('cargo' 'gcc' 'git' 'patchelf')
+install=$pkgname.install
+options=('!debug')
+backup=('etc/speech-dispatcher/modules/xfyun-tts.conf')
+
+# —— 项目源码 ——
+_srcurl=https://git.vconet.top/V-Conet/sd-xfyun
+_srcref=branch=main             # 或 tag=v0.1.0 / commit=<sha>
+
+# —— 3rd_party：讯飞 AIkit 离线合成 Linux SDK ——
+_sdkname=Linux_xtts_e2e44feff_v1.1.29_v2.2.15-rc5
+_sdkzip=$_sdkname.zip
+_sdkurl=https://bjcdn.openstorage.cn/aixfyun/xfyundoc/2024-05-08/bd8b1bfc-4fd9-45c6-b407-ab55d00eba4f/$_sdkzip
+
+source=(
+  "$pkgname::git+$_srcurl#$_srcref"
+  "$_sdkzip::$_sdkurl"
+)
+sha256sums=('SKIP'
+            'd3ec3be69c4642ced14b1d7d4e3d7e3c7cf102a38924ae9d6aef3327b457f9d1')
+
+prepare() {
+  cd "$srcdir/$pkgname"
+
+  mkdir -p 3rd_party
+  ln -sfn "$srcdir/$_sdkname" "3rd_party/$_sdkname"
+
+  if [[ ! -f keys.toml && -z ${XFYUN_APP_ID:-} ]]; then
+    error "缺少讯飞密钥：请把 keys.toml 放在源码树根目录，或设置 XFYUN_APP_ID/XFYUN_API_KEY/XFYUN_API_SECRET 环境变量"
+    return 1
+  fi
+}
+
+build() {
+  cd "$srcdir/$pkgname"
+  export XFYUN_SDK_ROOT="$srcdir/$_sdkname"
+  # 别把构建树路径写进二进制：不加 SDK 绝对 rpath，编译期默认 SDK 根目录改成安装后的位置
+  export XFYUN_SKIP_DEV_RPATH=1
+  export XFYUN_DEFAULT_SDK_ROOT=/usr/share/sd-xfyun
+
+  cargo fetch --locked
+  cargo build --release --locked --offline
+}
+
+package() {
+  cd "$srcdir/$pkgname"
+
+  # 模块 + 命令行（模块的 rpath 里 $ORIGIN/../../sd-xfyun 指向下面的库目录）
+  install -Dm755 target/release/sd_xfyun \
+    "$pkgdir/usr/lib/speech-dispatcher/speech-dispatcher-modules/sd_xfyun"
+  install -Dm755 target/release/xfyun-say "$pkgdir/usr/bin/xfyun-say"
+
+  # SDK 动态库
+  install -d "$pkgdir/usr/lib/sd-xfyun"
+  install -m644 "$srcdir/$_sdkname"/libs/*.so "$pkgdir/usr/lib/sd-xfyun/"
+
+  # libaikit.so 是用裸文件名 dlopen 引擎库的，而引擎库没有 SONAME（ldconfig 不会索引它）。
+  # 把它的 RUNPATH 改成 $ORIGIN（引擎库就在同目录），glibc 会查调用方的 RUNPATH，
+  # 于是既不需要 LD_LIBRARY_PATH、也不需要模块启动时 re-exec。
+  # 上游那条 /drone/src/... 的 RUNPATH 本来就是废路径。
+  patchelf --set-rpath '$ORIGIN' "$pkgdir/usr/lib/sd-xfyun/libaikit.so"
+
+  # 语音资源（xtts/）
+  install -d "$pkgdir/usr/share/sd-xfyun"
+  cp -a "$srcdir/$_sdkname/xtts" "$pkgdir/usr/share/sd-xfyun/"
+
+  # 模块配置：workDir 留默认（$XDG_DATA_HOME/sd-xfyun/work，按用户隔离，授权缓存也在那儿）；
+  # XfyunReexec 改 0（上面已经改好 RUNPATH，不需要启动时 re-exec）
+  sed -e 's|@SDK_ROOT@|/usr/share/sd-xfyun|g' \
+      -e 's|@LIBS_DIR@|/usr/lib/sd-xfyun|g' \
+      -e 's|@RES_DIR@|/usr/share/sd-xfyun|g' \
+      -e 's|^XfyunReexec 1|XfyunReexec 0|' \
+      conf/xfyun-tts.conf > "$srcdir/xfyun-tts.conf"
+  cat >> "$srcdir/xfyun-tts.conf" <<'CONF'
+
+# 本包安装的 libaikit.so 已被 patchelf 改写成 RUNPATH=$ORIGIN（与引擎库同目录），
+# 所以上面 XfyunReexec 是 0；把 SDK 库挪到别的目录时请改回 1。
+CONF
+  install -Dm644 "$srcdir/xfyun-tts.conf" \
+    "$pkgdir/etc/speech-dispatcher/modules/xfyun-tts.conf"
+
+  # 启用片段、备用（sd_generic）配置、文档、许可证
+  install -Dm644 conf/speechd.conf.snippet "$pkgdir/usr/share/sd-xfyun/speechd.conf.snippet"
+  install -Dm644 conf/xfyun-generic.conf "$pkgdir/usr/share/sd-xfyun/xfyun-generic.conf"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

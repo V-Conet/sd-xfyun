@@ -1,0 +1,18 @@
+# sd-xfyun.install —— pacman 安装/升级/卸载钩子
+
+_all_off="$(tput sgr0)"
+_bold="${_all_off}$(tput bold)"
+_blue="${_bold}$(tput setaf 4)"
+_yellow="${_bold}$(tput setaf 3)"
+
+note() {
+    printf "${_blue}==>${_yellow} NOTE:${_bold} %s${_all_off}\n" "$1"
+}
+
+post_install() {
+    note '本模块还没有启用。请使用 /usr/share/sd-xfyun/speechd.conf.snippet 在 ~/.config/speech-dispatcher/speechd.conf 或 /etc/speech-dispatcher/speechd.conf 里添加。'
+
+    note '首次使用时会联网激活一次，并占用一个装机量；'
+    note '已有授权文件可直接放到 ~/.local/share/sd-xfyun/work/，或用模块配置里的 XfyunLicenseFile 指定。'
+    note '不想联网激活的话，把模块配置里的 XfyunOfflineOnly 设为 1。'
+}

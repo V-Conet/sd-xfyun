@@ -1,0 +1,32 @@
+[package]
+name = "sd-xfyun"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "Speech Dispatcher output module (backend) for iFlytek AIkit offline XTTS"
+license = "MIT"
+build = "build.rs"
+
+[[bin]]
+name = "sd_xfyun"
+path = "src/bin/sd_xfyun.rs"
+
+[[bin]]
+name = "xfyun-say"
+path = "src/bin/xfyun_say.rs"
+
+[dependencies]
+obfstr = "0.4"
+
+[build-dependencies]
+cc = "1"
+
+[profile.release]
+lto = true
+strip = "symbols"
+panic = "abort"
+opt-level = "z"
+
+[profile.dev]
+# keep dev builds fast; the SDK shim is still optimized by cc
+opt-level = 1

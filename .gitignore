@@ -1,0 +1,20 @@
+/target
+
+/keys.toml
+
+# SDK 自己产生的日志
+/aee.log
+/files/
+
+# 讯飞 SDK 本体（约 30MB、专有软件）与压缩包：默认不入库。
+/3rd_party/*/
+/3rd_party/*.zip
+
+
+# 打包产物（makepkg 会把 VCS 裸镜像放在 SRCDEST，默认就是 PKGBUILD 目录）
+/packaging/sd-xfyun
+/packaging/*.pkg.tar.zst
+/packaging/*.zip
+/packaging/*.tar.gz
+/packaging/src
+/packaging/pkg

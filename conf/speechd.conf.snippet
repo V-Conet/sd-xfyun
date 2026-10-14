@@ -1,0 +1,15 @@
+# 把下面几行加进 speechd.conf（追加即可，注意不要重复添加）：
+#
+#   系统级：/etc/speech-dispatcher/speechd.conf
+#   用户级：$XDG_CONFIG_HOME/speech-dispatcher/speechd.conf（~/.config/speech-dispatcher/speechd.conf）
+#
+# 用户级配置优先于系统级；只改用户级不需要动 /etc。
+
+AddModule "xfyun" "sd_xfyun" "xfyun-tts.conf"
+
+# 设为默认语音模块（不设则客户端需要自己 SET OUTPUT_MODULE xfyun）
+DefaultModule xfyun
+
+# 中文默认走讯飞（其它语种保持原来的模块）
+LanguageDefaultModule "zh" "xfyun"
+LanguageDefaultModule "cmn" "xfyun"
